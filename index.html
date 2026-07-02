@@ -40,7 +40,10 @@ button { font: inherit; color: var(--ink-2); background: var(--surface);
   border: 1px solid var(--border); border-radius: 7px; padding: 5px 12px; cursor: pointer; }
 button:hover { color: var(--ink); }
 button.on { color: var(--ink); font-weight: 600; border-color: var(--axis); }
-.filters { display: flex; gap: 8px; margin-bottom: 16px; }
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.filters .range { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+select { font: inherit; color: var(--ink-2); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 7px; padding: 5px 8px; }
 /* KPI tiles */
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px; margin-bottom: 16px; }
@@ -128,6 +131,10 @@ tr:last-child td { border-bottom: none; }
     <button data-n="12">Last 12 months</button>
     <button data-n="24">Last 24 months</button>
     <button data-n="0" class="on">All</button>
+    <span class="range">
+      <select id="from" aria-label="From month"></select> –
+      <select id="to" aria-label="To month"></select>
+    </span>
   </div>
 
   <div class="card">
@@ -199,7 +206,7 @@ const signRp = (v) => (v >= 0 ? '+' : '−') + rp(Math.abs(v));
 const pct = (v, base) => base ? ' (' + (v >= 0 ? '+' : '−') + Math.round(Math.abs(v) / base * 100) + '%)' : '';
 
 let DATA = null;   // { months: [...] } sorted ascending
-let RANGE = 0;     // 0 = all
+let FROM = null, TO = null; // selected month range (keys), null = everything
 const HIDDEN = new Set(); // category keys toggled off in the breakdown chart
 
 // ---------- svg helpers ----------
@@ -498,10 +505,22 @@ function renderTable(months) {
 
 // ---------- app ----------
 function slice() {
-  return RANGE ? DATA.months.slice(-RANGE) : DATA.months;
+  let a = FROM, b = TO;
+  if (a && b && a > b) [a, b] = [b, a]; // tolerate a reversed pick
+  const ms = DATA.months.filter((m) => (!a || m.key >= a) && (!b || m.key <= b));
+  return ms.length ? ms : DATA.months;
+}
+function syncControls(months) {
+  const first = months[0].key, last = months[months.length - 1].key, all = DATA.months;
+  $('#from').value = first; $('#to').value = last;
+  for (const b of $('#filters').querySelectorAll('button')) {
+    const s = +b.dataset.n ? all.slice(-b.dataset.n) : all;
+    b.classList.toggle('on', s[0].key === first && s[s.length - 1].key === last);
+  }
 }
 function render() {
   const months = slice();
+  syncControls(months);
   $('#asof').textContent = 'through ' + monFull(months[months.length - 1].key);
   renderKpis(months);
   renderHighlights(months);
@@ -513,8 +532,12 @@ function render() {
 
 $('#filters').addEventListener('click', (ev) => {
   const b = ev.target.closest('button'); if (!b) return;
-  RANGE = +b.dataset.n;
-  for (const x of $('#filters').children) x.classList.toggle('on', x === b);
+  const s = +b.dataset.n ? DATA.months.slice(-b.dataset.n) : DATA.months;
+  FROM = s[0].key; TO = s[s.length - 1].key;
+  render();
+});
+$('#filters').addEventListener('change', () => {
+  FROM = $('#from').value; TO = $('#to').value;
   render();
 });
 $('#lockbtn').addEventListener('click', () => {
@@ -538,6 +561,12 @@ async function boot() {
   const unlock = (data) => {
     DATA = data;
     data.months.sort((a, b) => a.key.localeCompare(b.key));
+    for (const sel of [$('#from'), $('#to')])
+      for (const m of data.months) {
+        const o = document.createElement('option');
+        o.value = m.key; o.textContent = monFull(m.key);
+        sel.appendChild(o);
+      }
     $('#boot').hidden = true; $('#lock').hidden = true; $('#app').hidden = false;
     render();
   };

@@ -33,6 +33,9 @@ header button { margin-left: auto; }
   padding: 16px; margin-bottom: 16px; }
 .card h2 { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 0 0 12px;
   text-transform: uppercase; letter-spacing: .04em; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 640px) { .duo { grid-template-columns: 1fr; } }
+.duo h3 { font-size: 12px; font-weight: 500; color: var(--muted); margin: 0 0 8px; }
 button { font: inherit; color: var(--ink-2); background: var(--surface);
   border: 1px solid var(--border); border-radius: 7px; padding: 5px 12px; cursor: pointer; }
 button:hover { color: var(--ink); }
@@ -53,6 +56,8 @@ button.on { color: var(--ink); font-weight: 600; border-color: var(--axis); }
 /* legend */
 .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; color: var(--ink-2); font-size: 12px; }
 .legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.legend button.key { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.legend .key.off { opacity: .35; text-decoration: line-through; }
 .legend .line { width: 14px; height: 2px; border-radius: 1px; }
 .legend .swatch { width: 10px; height: 10px; border-radius: 3px; }
 /* chart */
@@ -138,6 +143,14 @@ tr:last-child td { border-bottom: none; }
   </div>
 
   <div class="card">
+    <h2>Usage per month</h2>
+    <div class="duo">
+      <div><h3>Electricity · kWh</h3><div class="chart" id="ukwh"></div></div>
+      <div><h3>Water · m³</h3><div class="chart" id="um3"></div></div>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>All months</h2>
     <div class="tablewrap" id="tablewrap"></div>
   </div>
@@ -187,6 +200,7 @@ const pct = (v, base) => base ? ' (' + (v >= 0 ? '+' : '−') + Math.round(Math.
 
 let DATA = null;   // { months: [...] } sorted ascending
 let RANGE = 0;     // 0 = all
+const HIDDEN = new Set(); // category keys toggled off in the breakdown chart
 
 // ---------- svg helpers ----------
 function el(name, attrs, parent) {
@@ -221,12 +235,19 @@ function showTip(x, y, title, rows) {
 }
 const hideTip = () => { tip.style.display = 'none'; };
 
-function legend(container, items, shape) {
+function legend(container, items, shape, onToggle) {
   container.textContent = '';
   for (const it of items) {
-    const k = document.createElement('span'); k.className = 'key';
+    const k = document.createElement(onToggle ? 'button' : 'span');
+    k.className = 'key' + (it.off ? ' off' : '');
     const sw = document.createElement('span'); sw.className = shape; sw.style.background = it.color;
     k.append(sw, document.createTextNode(it.label));
+    if (onToggle) {
+      k.type = 'button';
+      k.setAttribute('aria-pressed', String(!it.off));
+      k.title = 'Toggle category';
+      k.addEventListener('click', () => onToggle(it));
+    }
     container.appendChild(k);
   }
 }
@@ -294,12 +315,17 @@ function roundedTop(x, y, w, h, r) {
 }
 function renderStack(months) {
   const box = $('#stack'); box.textContent = '';
-  legend($('#stacklegend'), CATS.map((c) => ({ label: c.label, color: catColor(c) })), 'swatch');
+  legend($('#stacklegend'), CATS.map((c) => ({ label: c.label, color: catColor(c), off: HIDDEN.has(c.k), c })), 'swatch', (it) => {
+    HIDDEN.has(it.c.k) ? HIDDEN.delete(it.c.k) : HIDDEN.add(it.c.k);
+    renderStack(slice());
+  });
+  const shown = CATS.filter((c) => !HIDDEN.has(c.k));
+  const visTotal = (m) => shown.reduce((s, c) => s + c.get(m), 0);
 
   const W = Math.max(320, box.clientWidth), H = 280, pad = { t: 14, r: 8, b: 26, l: 46 };
   const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
   const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Expense breakdown by category' }, box);
-  const ticks = niceTicks(Math.max(...months.map(total)));
+  const ticks = niceTicks(Math.max(1, ...months.map(visTotal)));
   const ymax = ticks[ticks.length - 1];
   const band = pw / months.length;
   const bw = Math.min(24, band * 0.6);
@@ -315,8 +341,8 @@ function renderStack(months) {
     const cx = pad.l + band * (i + 0.5);
     if (i % step === 0 || i === months.length - 1)
       el('text', { x: cx, y: H - 8, 'text-anchor': 'middle' }, svg).textContent = monLabel(m.key);
-    const parts = CATS.map((c) => ({ c, v: c.get(m) })).filter((p) => p.v > 0);
-    const monthTotal = total(m);
+    const parts = shown.map((c) => ({ c, v: c.get(m) })).filter((p) => p.v > 0);
+    const monthTotal = visTotal(m);
     let cum = 0;
     parts.forEach((p, pi) => {
       const y1 = y(cum + p.v), y0 = y(cum);
@@ -331,7 +357,7 @@ function renderStack(months) {
       shape.setAttribute('aria-label', `${monFull(m.key)} ${p.c.label}: ${rp(p.v)}`);
       const show = (px, py) => showTip(px, py, monFull(m.key), [
         { color: catColor(p.c), value: rp(p.v), name: p.c.label + ' · ' + Math.round(p.v / monthTotal * 100) + '%' },
-        { color: 'transparent', value: rp(monthTotal), name: 'month total' },
+        { color: 'transparent', value: rp(monthTotal), name: HIDDEN.size ? 'selected total' : 'month total' },
       ]);
       shape.addEventListener('pointermove', (ev) => show(ev.clientX, ev.clientY));
       shape.addEventListener('focus', () => { const r = shape.getBoundingClientRect(); show(r.right, r.top); });
@@ -340,6 +366,45 @@ function renderStack(months) {
       cum += p.v;
     });
   });
+}
+
+// ---------- usage bar charts (single series, one per unit — never dual-axis) ----------
+function renderUsage(months) {
+  const one = (sel, get, colorVar, unit, aria) => {
+    const box = $(sel); box.textContent = '';
+    const color = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim();
+    const W = Math.max(260, box.clientWidth), H = 190, pad = { t: 16, r: 8, b: 24, l: 40 };
+    const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+    const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': aria }, box);
+    const vals = months.map((m) => get(m) ?? 0);
+    const ticks = niceTicks(Math.max(1, ...vals));
+    const ymax = ticks[ticks.length - 1];
+    const band = pw / months.length;
+    const bw = Math.min(24, band * 0.6);
+    const y = (v) => pad.t + ph - v / ymax * ph;
+    for (const tv of ticks) {
+      el('line', { x1: pad.l, x2: W - pad.r, y1: y(tv), y2: y(tv), class: tv === 0 ? 'axisline' : 'grid' }, svg);
+      el('text', { x: pad.l - 6, y: y(tv) + 3, 'text-anchor': 'end' }, svg).textContent = idFmt.format(tv);
+    }
+    const step = Math.ceil(months.length / Math.max(1, Math.floor(pw / 52)));
+    months.forEach((m, i) => {
+      const cx = pad.l + band * (i + 0.5);
+      if (i % step === 0 || i === months.length - 1)
+        el('text', { x: cx, y: H - 6, 'text-anchor': 'middle' }, svg).textContent = monLabel(m.key);
+      const v = vals[i];
+      const bar = el('path', { d: roundedTop(cx - bw / 2, y(v), bw, Math.max(0.5, y(0) - y(v)), 4), fill: color, class: 'seg', tabindex: 0,
+        'aria-label': `${monFull(m.key)}: ${idFmt.format(v)} ${unit}` }, svg);
+      const show = (px, py) => showTip(px, py, monFull(m.key), [{ color, value: idFmt.format(v) + ' ' + unit, name: aria }]);
+      bar.addEventListener('pointermove', (ev) => show(ev.clientX, ev.clientY));
+      bar.addEventListener('focus', () => { const r = bar.getBoundingClientRect(); show(r.right, r.top); });
+      bar.addEventListener('pointerleave', hideTip);
+      bar.addEventListener('blur', hideTip);
+      if (i === months.length - 1) // direct-label the endpoint only
+        el('text', { x: cx, y: y(v) - 5, 'text-anchor': 'middle', class: 'endlabel' }, svg).textContent = idFmt.format(v);
+    });
+  };
+  one('#ukwh', (m) => m.elec && m.elec.consumedKwh, '--s1', 'kWh', 'Electricity usage');
+  one('#um3', (m) => m.water && m.water.consumedM3, '--s2', 'm³', 'Water usage');
 }
 
 // ---------- KPIs & highlights ----------
@@ -442,6 +507,7 @@ function render() {
   renderHighlights(months);
   renderTrend(months);
   renderStack(months);
+  renderUsage(months);
   renderTable(months);
 }
 

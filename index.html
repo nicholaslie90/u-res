@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>U-Residence Expenses</title>
+<style>
+:root {
+  --page: #f9f9f7; --surface: #fcfcfb;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --s1: #2a78d6; --s2: #1baf7a; --s3: #eda100; --s4: #008300; --s5: #4a3aa7;
+  --up-bad: #d03b3b; --down-good: #006300;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --s1: #3987e5; --s2: #199e70; --s3: #c98500; --s4: #008300; --s5: #9085e9;
+    --up-bad: #e66767; --down-good: #0ca30c;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
+header h1 { font-size: 20px; font-weight: 650; margin: 0; }
+header .sub { color: var(--muted); }
+header button { margin-left: auto; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; margin-bottom: 16px; }
+.card h2 { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 0 0 12px;
+  text-transform: uppercase; letter-spacing: .04em; }
+button { font: inherit; color: var(--ink-2); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 7px; padding: 5px 12px; cursor: pointer; }
+button:hover { color: var(--ink); }
+button.on { color: var(--ink); font-weight: 600; border-color: var(--axis); }
+.filters { display: flex; gap: 8px; margin-bottom: 16px; }
+/* KPI tiles */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px; margin-bottom: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.tile .label { color: var(--muted); font-size: 12px; }
+.tile .value { font-size: 24px; font-weight: 600; margin: 2px 0; }
+.tile .delta { font-size: 12px; color: var(--muted); }
+.tile .delta b { font-weight: 600; }
+.delta .up { color: var(--up-bad); } .delta .down { color: var(--down-good); }
+/* highlight */
+#highlight p { margin: 6px 0; color: var(--ink-2); }
+#highlight p b { color: var(--ink); font-weight: 600; }
+/* legend */
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; color: var(--ink-2); font-size: 12px; }
+.legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.legend .line { width: 14px; height: 2px; border-radius: 1px; }
+.legend .swatch { width: 10px; height: 10px; border-radius: 3px; }
+/* chart */
+.chart { position: relative; }
+svg text { font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--muted); }
+svg .endlabel { fill: var(--ink-2); font-weight: 600; }
+svg .grid { stroke: var(--grid); stroke-width: 1; }
+svg .axisline { stroke: var(--axis); stroke-width: 1; }
+svg .hair { stroke: var(--axis); stroke-width: 1; }
+.seg { cursor: default; }
+.seg:hover, .seg:focus { filter: brightness(1.12); outline: none; }
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.15); display: none; min-width: 150px; }
+#tip .t { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+#tip .row { display: flex; align-items: center; gap: 7px; margin: 2px 0; }
+#tip .row .line { width: 12px; height: 2px; border-radius: 1px; flex: none; }
+#tip .row .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+#tip .row .n { color: var(--ink-2); font-size: 12px; }
+/* table */
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; white-space: nowrap; }
+th, td { text-align: right; padding: 6px 10px; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; border-bottom: 1px solid var(--grid); }
+td { border-bottom: 1px solid var(--grid); color: var(--ink-2); }
+td:first-child, td:last-child { color: var(--ink); }
+td:last-child { font-weight: 600; }
+tr:last-child td { border-bottom: none; }
+/* lock screen */
+#lock { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+#lock .card { width: 300px; text-align: center; }
+#lock h1 { font-size: 17px; margin: 0 0 4px; }
+#lock p { color: var(--muted); margin: 0 0 14px; }
+#lock input { width: 100%; font: inherit; padding: 8px 10px; border-radius: 7px;
+  border: 1px solid var(--axis); background: var(--page); color: var(--ink); margin-bottom: 10px; }
+#lock button { width: 100%; padding: 8px; font-weight: 600; }
+#err { color: var(--up-bad); font-size: 12px; min-height: 18px; margin: 6px 0 0; }
+#boot { min-height: 100vh; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="boot">Unlocking…</div>
+
+<div id="lock" hidden>
+  <form class="card" id="lockform">
+    <h1>U-Residence Expenses</h1>
+    <p>Enter the password to decrypt the data.</p>
+    <input id="pw" type="password" autocomplete="current-password" placeholder="Password" autofocus>
+    <button type="submit">Unlock</button>
+    <div id="err"></div>
+  </form>
+</div>
+
+<div id="app" class="wrap" hidden>
+  <header>
+    <h1>U-Residence Expenses</h1>
+    <span class="sub" id="asof"></span>
+    <button id="lockbtn" title="Forget saved password on this device">Lock</button>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card" id="highlight"><h2>Highlights</h2><div id="hl"></div></div>
+
+  <div class="filters" id="filters">
+    <button data-n="12">Last 12 months</button>
+    <button data-n="24">Last 24 months</button>
+    <button data-n="0" class="on">All</button>
+  </div>
+
+  <div class="card">
+    <h2>Monthly total</h2>
+    <div class="legend" id="trendlegend"></div>
+    <div class="chart" id="trend"></div>
+  </div>
+
+  <div class="card">
+    <h2>Breakdown by category</h2>
+    <div class="legend" id="stacklegend"></div>
+    <div class="chart" id="stack"></div>
+  </div>
+
+  <div class="card">
+    <h2>All months</h2>
+    <div class="tablewrap" id="tablewrap"></div>
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<script>
+'use strict';
+const $ = (s) => document.querySelector(s);
+const KEY_STORE = 'ures.key';
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+// ---------- crypto ----------
+const b64d = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const b64e = (u) => btoa(String.fromCharCode(...u));
+async function deriveKeyBytes(pw, salt, iter) {
+  const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: iter, hash: 'SHA-256' }, km, 256);
+  return new Uint8Array(bits);
+}
+async function decryptWith(payload, keyBytes) {
+  const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-GCM', false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64d(payload.iv) }, key, b64d(payload.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+// ---------- data & formatting ----------
+const CATS = [
+  { k: 'elec',  label: 'Electricity',  v: 1, get: (m) => m.elec ? m.elec.subtotal : 0 },
+  { k: 'water', label: 'Water',        v: 2, get: (m) => m.water ? m.water.subtotal : 0 },
+  { k: 'ipl',   label: 'IPL',          v: 3, get: (m) => m.ipl || 0 },
+  { k: 'sf',    label: 'Sinking fund', v: 4, get: (m) => m.sinkingFund || 0 },
+  { k: 'ppn',   label: 'PPN (tax)',    v: 5, get: (m) => m.ppn || 0 },
+];
+const catColor = (c) => getComputedStyle(document.documentElement).getPropertyValue('--s' + c.v).trim();
+const total = (m) => CATS.reduce((s, c) => s + c.get(m), 0);
+const utilities = (m) => CATS[0].get(m) + CATS[1].get(m);
+const idFmt = new Intl.NumberFormat('id-ID');
+const rp = (v) => 'Rp' + idFmt.format(Math.round(v));
+const rpc = (v) => v >= 1e6 ? 'Rp' + (Math.round(v / 1e5) / 10) + 'jt' : v >= 1e3 ? 'Rp' + Math.round(v / 1e3) + 'rb' : 'Rp' + Math.round(v);
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const monLabel = (key) => MON[+key.slice(5) - 1] + ' ’' + key.slice(2, 4);
+const monFull = (key) => MON[+key.slice(5) - 1] + ' ' + key.slice(0, 4);
+const signRp = (v) => (v >= 0 ? '+' : '−') + rp(Math.abs(v));
+const pct = (v, base) => base ? ' (' + (v >= 0 ? '+' : '−') + Math.round(Math.abs(v) / base * 100) + '%)' : '';
+
+let DATA = null;   // { months: [...] } sorted ascending
+let RANGE = 0;     // 0 = all
+
+// ---------- svg helpers ----------
+function el(name, attrs, parent) {
+  const e = document.createElementNS(SVGNS, name);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function niceTicks(max, n = 4) {
+  const raw = max / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map((x) => x * mag).find((x) => x >= raw);
+  const top = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = 0; v <= top + 1e-9; v += step) ticks.push(v);
+  return ticks;
+}
+const tip = $('#tip');
+function showTip(x, y, title, rows) {
+  tip.textContent = '';
+  const t = document.createElement('div'); t.className = 't'; t.textContent = title; tip.appendChild(t);
+  for (const r of rows) {
+    const row = document.createElement('div'); row.className = 'row';
+    const key = document.createElement('span'); key.className = 'line'; key.style.background = r.color;
+    const v = document.createElement('span'); v.className = 'v'; v.textContent = r.value;
+    const n = document.createElement('span'); n.className = 'n'; n.textContent = r.name;
+    row.append(key, v, n); tip.appendChild(row);
+  }
+  tip.style.display = 'block';
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.min(x + 14, innerWidth - w - 8) + 'px';
+  tip.style.top = Math.max(8, Math.min(y - h - 12, innerHeight - h - 8)) + 'px';
+}
+const hideTip = () => { tip.style.display = 'none'; };
+
+function legend(container, items, shape) {
+  container.textContent = '';
+  for (const it of items) {
+    const k = document.createElement('span'); k.className = 'key';
+    const sw = document.createElement('span'); sw.className = shape; sw.style.background = it.color;
+    k.append(sw, document.createTextNode(it.label));
+    container.appendChild(k);
+  }
+}
+
+// ---------- trend line chart ----------
+function renderTrend(months) {
+  const box = $('#trend'); box.textContent = '';
+  const series = [
+    { name: 'Grand total', color: catColor({ v: 1 }), vals: months.map(total) },
+    { name: 'Utilities only (elec + water)', color: catColor({ v: 2 }), vals: months.map(utilities) },
+  ];
+  legend($('#trendlegend'), series.map((s) => ({ label: s.name, color: s.color })), 'line');
+
+  const W = Math.max(320, box.clientWidth), H = 260, pad = { t: 14, r: 76, b: 26, l: 46 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Monthly total trend' }, box);
+  const max = Math.max(...series.flatMap((s) => s.vals));
+  const ticks = niceTicks(max);
+  const ymax = ticks[ticks.length - 1];
+  const x = (i) => pad.l + (months.length === 1 ? pw / 2 : i * pw / (months.length - 1));
+  const y = (v) => pad.t + ph - v / ymax * ph;
+
+  for (const tv of ticks) {
+    el('line', { x1: pad.l, x2: W - pad.r, y1: y(tv), y2: y(tv), class: tv === 0 ? 'axisline' : 'grid' }, svg);
+    el('text', { x: pad.l - 6, y: y(tv) + 3, 'text-anchor': 'end' }, svg).textContent = rpc(tv);
+  }
+  const step = Math.ceil(months.length / Math.floor(pw / 52));
+  months.forEach((m, i) => {
+    if (i % step === 0 || i === months.length - 1)
+      el('text', { x: x(i), y: H - 8, 'text-anchor': 'middle' }, svg).textContent = monLabel(m.key);
+  });
+
+  const surface = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
+  for (const s of series) {
+    const d = s.vals.map((v, i) => (i ? 'L' : 'M') + x(i) + ' ' + y(v)).join(' ');
+    el('path', { d, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+    const li = s.vals.length - 1;
+    el('circle', { cx: x(li), cy: y(s.vals[li]), r: 4, fill: s.color, stroke: surface, 'stroke-width': 2 }, svg);
+    el('text', { x: x(li) + 8, y: y(s.vals[li]) + 4, class: 'endlabel' }, svg).textContent = rpc(s.vals[li]);
+  }
+
+  // crosshair + tooltip
+  const hair = el('line', { y1: pad.t, y2: pad.t + ph, class: 'hair', visibility: 'hidden' }, svg);
+  const dots = series.map((s) => el('circle', { r: 4, fill: s.color, stroke: surface, 'stroke-width': 2, visibility: 'hidden' }, svg));
+  const hit = el('rect', { x: pad.l, y: pad.t, width: pw, height: ph, fill: 'transparent' }, svg);
+  hit.addEventListener('pointermove', (ev) => {
+    const r = svg.getBoundingClientRect();
+    const i = Math.max(0, Math.min(months.length - 1, Math.round((ev.clientX - r.left - pad.l) / (pw / Math.max(1, months.length - 1)))));
+    hair.setAttribute('x1', x(i)); hair.setAttribute('x2', x(i)); hair.setAttribute('visibility', 'visible');
+    series.forEach((s, si) => { dots[si].setAttribute('cx', x(i)); dots[si].setAttribute('cy', y(s.vals[i])); dots[si].setAttribute('visibility', 'visible'); });
+    showTip(ev.clientX, ev.clientY, monFull(months[i].key),
+      series.map((s) => ({ color: s.color, value: rp(s.vals[i]), name: s.name })));
+  });
+  hit.addEventListener('pointerleave', () => {
+    hair.setAttribute('visibility', 'hidden');
+    dots.forEach((d) => d.setAttribute('visibility', 'hidden'));
+    hideTip();
+  });
+}
+
+// ---------- stacked bar chart ----------
+function roundedTop(x, y, w, h, r) {
+  r = Math.min(r, h, w / 2);
+  return `M${x} ${y + h} L${x} ${y + r} Q${x} ${y} ${x + r} ${y} L${x + w - r} ${y} Q${x + w} ${y} ${x + w} ${y + r} L${x + w} ${y + h} Z`;
+}
+function renderStack(months) {
+  const box = $('#stack'); box.textContent = '';
+  legend($('#stacklegend'), CATS.map((c) => ({ label: c.label, color: catColor(c) })), 'swatch');
+
+  const W = Math.max(320, box.clientWidth), H = 280, pad = { t: 14, r: 8, b: 26, l: 46 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const svg = el('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Expense breakdown by category' }, box);
+  const ticks = niceTicks(Math.max(...months.map(total)));
+  const ymax = ticks[ticks.length - 1];
+  const band = pw / months.length;
+  const bw = Math.min(24, band * 0.6);
+  const y = (v) => pad.t + ph - v / ymax * ph;
+
+  for (const tv of ticks) {
+    el('line', { x1: pad.l, x2: W - pad.r, y1: y(tv), y2: y(tv), class: tv === 0 ? 'axisline' : 'grid' }, svg);
+    el('text', { x: pad.l - 6, y: y(tv) + 3, 'text-anchor': 'end' }, svg).textContent = rpc(tv);
+  }
+  const step = Math.ceil(months.length / Math.floor(pw / 52));
+
+  months.forEach((m, i) => {
+    const cx = pad.l + band * (i + 0.5);
+    if (i % step === 0 || i === months.length - 1)
+      el('text', { x: cx, y: H - 8, 'text-anchor': 'middle' }, svg).textContent = monLabel(m.key);
+    const parts = CATS.map((c) => ({ c, v: c.get(m) })).filter((p) => p.v > 0);
+    const monthTotal = total(m);
+    let cum = 0;
+    parts.forEach((p, pi) => {
+      const y1 = y(cum + p.v), y0 = y(cum);
+      const gap = pi < parts.length - 1 ? 2 : 0; // 2px surface gap between segments
+      const h = Math.max(0.5, y0 - y1 - gap);
+      const topmost = pi === parts.length - 1;
+      const shape = topmost
+        ? el('path', { d: roundedTop(cx - bw / 2, y1, bw, h, 4), fill: catColor(p.c) }, svg)
+        : el('rect', { x: cx - bw / 2, y: y1, width: bw, height: h, fill: catColor(p.c) }, svg);
+      shape.setAttribute('class', 'seg');
+      shape.setAttribute('tabindex', '0');
+      shape.setAttribute('aria-label', `${monFull(m.key)} ${p.c.label}: ${rp(p.v)}`);
+      const show = (px, py) => showTip(px, py, monFull(m.key), [
+        { color: catColor(p.c), value: rp(p.v), name: p.c.label + ' · ' + Math.round(p.v / monthTotal * 100) + '%' },
+        { color: 'transparent', value: rp(monthTotal), name: 'month total' },
+      ]);
+      shape.addEventListener('pointermove', (ev) => show(ev.clientX, ev.clientY));
+      shape.addEventListener('focus', () => { const r = shape.getBoundingClientRect(); show(r.right, r.top); });
+      shape.addEventListener('pointerleave', hideTip);
+      shape.addEventListener('blur', hideTip);
+      cum += p.v;
+    });
+  });
+}
+
+// ---------- KPIs & highlights ----------
+function tile(label, value, deltaHtmlParts) {
+  const d = document.createElement('div'); d.className = 'tile';
+  const l = document.createElement('div'); l.className = 'label'; l.textContent = label;
+  const v = document.createElement('div'); v.className = 'value'; v.textContent = value;
+  const dl = document.createElement('div'); dl.className = 'delta';
+  if (deltaHtmlParts) {
+    const b = document.createElement('b');
+    b.className = deltaHtmlParts.dir;
+    b.textContent = deltaHtmlParts.text;
+    dl.append(b, ' ' + deltaHtmlParts.suffix);
+  }
+  d.append(l, v, dl);
+  return d;
+}
+const dirOf = (v) => v > 0 ? 'up' : 'down';
+
+function renderKpis(months) {
+  const box = $('#kpis'); box.textContent = '';
+  const last = months[months.length - 1], prev = months[months.length - 2];
+  const vs = prev ? 'vs ' + monFull(prev.key) : '';
+  const d = (cur, pre, fmt) => prev ? { dir: dirOf(cur - pre), text: (fmt || signRp)(cur - pre) + pct(cur - pre, pre), suffix: vs } : null;
+
+  box.appendChild(tile('Latest bill · ' + monFull(last.key), rp(total(last)), d(total(last), prev && total(prev))));
+  box.appendChild(tile('Utilities only (elec + water)', rp(utilities(last)), d(utilities(last), prev && utilities(prev))));
+  if (last.elec) {
+    const pk = prev && prev.elec ? prev.elec.consumedKwh : null;
+    box.appendChild(tile('Electricity usage', idFmt.format(last.elec.consumedKwh) + ' kWh',
+      pk != null ? { dir: dirOf(last.elec.consumedKwh - pk), text: (last.elec.consumedKwh - pk >= 0 ? '+' : '−') + idFmt.format(Math.abs(Math.round((last.elec.consumedKwh - pk) * 10) / 10)) + ' kWh' + pct(last.elec.consumedKwh - pk, pk), suffix: vs } : null));
+  }
+  const n = Math.min(12, months.length);
+  const avg = months.slice(-n).reduce((s, m) => s + total(m), 0) / n;
+  box.appendChild(tile(`Average per month (${n} mo)`, rp(avg), null));
+}
+
+function renderHighlights(months) {
+  const box = $('#hl'); box.textContent = '';
+  const p = (parts) => { const e = document.createElement('p'); e.append(...parts); box.appendChild(e); };
+  const strong = (t) => { const b = document.createElement('b'); b.textContent = t; return b; };
+  const last = months[months.length - 1], prev = months[months.length - 2];
+  if (!prev) { p([`Only one month of data so far (${monFull(last.key)}: ${rp(total(last))}).`]); return; }
+
+  const dTotal = total(last) - total(prev);
+  const quarterly = (last.ipl || 0) + (last.sinkingFund || 0);
+  const parts = [`${monFull(last.key)} came to `, strong(rp(total(last))), `, ${dTotal >= 0 ? 'up' : 'down'} `, strong(signRp(dTotal) + pct(dTotal, total(prev))), ` vs ${monFull(prev.key)}.`];
+  if (quarterly > 0 && !((prev.ipl || 0) + (prev.sinkingFund || 0)))
+    parts.push(` The quarterly IPL + sinking fund (`, strong(rp(quarterly)), `) landed this month — utilities alone were `, strong(rp(utilities(last))), '.');
+  p(parts);
+
+  // biggest mover among the monthly utilities (comparable month to month)
+  const movers = CATS.slice(0, 2).map((c) => ({ c, d: c.get(last) - c.get(prev), base: c.get(prev) }))
+    .sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
+  const top = movers[0];
+  if (top && Math.abs(top.d) > 0) {
+    const line = [strong(top.c.label), ` moved the most: `, strong(signRp(top.d) + pct(top.d, top.base)), '.'];
+    if (top.c.k === 'elec' && last.elec && prev.elec) {
+      const dk = Math.round((last.elec.consumedKwh - prev.elec.consumedKwh) * 10) / 10;
+      line.push(` Usage was ${idFmt.format(last.elec.consumedKwh)} kWh (${(dk >= 0 ? '+' : '−') + idFmt.format(Math.abs(dk))} kWh).`);
+    }
+    if (top.c.k === 'water' && last.water && prev.water)
+      line.push(` Usage was ${idFmt.format(last.water.consumedM3)} m³ (vs ${idFmt.format(prev.water.consumedM3)} m³).`);
+    p(line);
+  }
+  // year over year, when available
+  const yoyKey = (+last.key.slice(0, 4) - 1) + last.key.slice(4);
+  const yoy = months.find((m) => m.key === yoyKey);
+  if (yoy) {
+    const dy = utilities(last) - utilities(yoy);
+    p([`Utilities vs a year ago (${monFull(yoy.key)}): `, strong(signRp(dy) + pct(dy, utilities(yoy))), '.']);
+  }
+}
+
+function renderTable(months) {
+  const wrap = $('#tablewrap'); wrap.textContent = '';
+  const t = document.createElement('table');
+  const head = t.createTHead().insertRow();
+  for (const h of ['Month', ...CATS.map((c) => c.label), 'Total']) {
+    const th = document.createElement('th'); th.textContent = h; head.appendChild(th);
+  }
+  const body = t.createTBody();
+  for (const m of [...months].reverse()) {
+    const tr = body.insertRow();
+    tr.insertCell().textContent = monFull(m.key);
+    for (const c of CATS) tr.insertCell().textContent = c.get(m) ? rp(c.get(m)) : '—';
+    tr.insertCell().textContent = rp(total(m));
+  }
+  wrap.appendChild(t);
+}
+
+// ---------- app ----------
+function slice() {
+  return RANGE ? DATA.months.slice(-RANGE) : DATA.months;
+}
+function render() {
+  const months = slice();
+  $('#asof').textContent = 'through ' + monFull(months[months.length - 1].key);
+  renderKpis(months);
+  renderHighlights(months);
+  renderTrend(months);
+  renderStack(months);
+  renderTable(months);
+}
+
+$('#filters').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button'); if (!b) return;
+  RANGE = +b.dataset.n;
+  for (const x of $('#filters').children) x.classList.toggle('on', x === b);
+  render();
+});
+$('#lockbtn').addEventListener('click', () => {
+  localStorage.removeItem(KEY_STORE);
+  location.reload();
+});
+let resizeTimer;
+addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => DATA && render(), 150); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => DATA && render());
+
+async function boot() {
+  let payload;
+  try {
+    const res = await fetch('data.enc', { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status);
+    payload = await res.json();
+  } catch {
+    $('#boot').textContent = 'Could not load data.enc';
+    return;
+  }
+  const unlock = (data) => {
+    DATA = data;
+    data.months.sort((a, b) => a.key.localeCompare(b.key));
+    $('#boot').hidden = true; $('#lock').hidden = true; $('#app').hidden = false;
+    render();
+  };
+  const saved = localStorage.getItem(KEY_STORE);
+  if (saved) {
+    try { unlock(await decryptWith(payload, b64d(saved))); return; }
+    catch { localStorage.removeItem(KEY_STORE); }
+  }
+  $('#boot').hidden = true;
+  $('#lock').hidden = false;
+  $('#pw').focus();
+  $('#lockform').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    $('#err').textContent = '';
+    try {
+      const keyBytes = await deriveKeyBytes($('#pw').value, b64d(payload.salt), payload.iter);
+      const data = await decryptWith(payload, keyBytes);
+      localStorage.setItem(KEY_STORE, b64e(keyBytes)); // remember: next visit opens instantly
+      unlock(data);
+    } catch {
+      $('#err').textContent = 'Wrong password.';
+      $('#pw').select();
+    }
+  });
+}
+boot();
+</script>
+</body>
+</html>

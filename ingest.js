@@ -216,12 +216,16 @@ async function main() {
   } else if (args.length && !args[0].startsWith('--')) {
     const parsed = args.map(parsePdf);
     const { data, pw } = await loadData();
+    const before = JSON.stringify(data);
     for (const p of parsed) {
       let m = data.months.find((x) => x.key === p.key);
       if (!m) { m = { key: p.key, ipl: 0, sinkingFund: 0, ppn: 0 }; data.months.push(m); }
       Object.assign(m, p);
       console.log(`${p.key}: ${p.sinkingFund != null ? `sinking fund ${p.sinkingFund.toLocaleString()}` : `utilities updated, grand total ${grandTotal(m).toLocaleString()}`}`);
     }
+    data.months.sort((a, b) => a.key.localeCompare(b.key));
+    // re-encrypting always changes the file (fresh IV), so skip identical data to keep the daily job from committing noise
+    if (JSON.stringify(data) === before) { console.log('No changes (already ingested).'); return; }
     save(data, pw);
     console.log('data.enc updated. Commit and push to publish.');
   } else {

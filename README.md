@@ -26,6 +26,23 @@ git commit -am "add month" && git push
 password. Every parsed value is cross-checked against the invoice's own
 subtotals — a layout change fails loudly instead of storing bad numbers.
 
+## Automatic ingest from Gmail
+
+`.github/workflows/ingest-mail.yml` runs daily at 08:00 WIB (or on demand from the
+Actions tab, with a look-back `days` input). It calls the Apps Script web app in
+`apps-script/Code.gs`, which returns `BPU2-IU*/BPU2-IR*.pdf` attachments from Gmail.
+The workflow then runs `ingest.js` on each PDF and commits `data.enc` only if the data
+changed. PDFs are never committed and amounts are never logged, because Actions logs
+on a public repo are public.
+
+Setup (one time):
+1. Go to script.google.com and create a new project. Paste in `apps-script/Code.gs`.
+   Under Project Settings → Script properties, add `TOKEN` = a long random string.
+2. Deploy → New deployment → Web app. Set Execute as: **Me**, Who has access:
+   **Anyone**, then authorize Gmail access. Copy the `/exec` URL.
+3. Add the repo secrets `MAIL_URL` (the /exec URL), `MAIL_TOKEN` (the same TOKEN) and
+   `URES_PASSWORD`.
+
 ## Other commands
 
 ```sh

@@ -1,0 +1,42 @@
+name: ingest-mail
+on:
+  schedule:
+    - cron: '0 1 * * *' # 08:00 WIB daily
+  workflow_dispatch:
+    inputs:
+      days:
+        description: Look back this many days in Gmail
+        default: '45'
+permissions:
+  contents: write
+concurrency: ingest-mail
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get install -y -qq poppler-utils >/dev/null
+      # Public repo = public logs: never print invoice contents or amounts.
+      - name: Fetch invoice PDFs
+        env:
+          MAIL_URL: ${{ secrets.MAIL_URL }}
+          MAIL_TOKEN: ${{ secrets.MAIL_TOKEN }}
+          DAYS: ${{ inputs.days || '45' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pdfs"
+          curl -fsSL --data-urlencode "token=$MAIL_TOKEN" --data-urlencode "days=$DAYS" "$MAIL_URL" -o "$RUNNER_TEMP/mail.json"
+          node fetch-decode.js "$RUNNER_TEMP/mail.json" "$RUNNER_TEMP/pdfs"
+      - name: Ingest and commit
+        env:
+          URES_PASSWORD: ${{ secrets.URES_PASSWORD }}
+        run: |
+          fail=0
+          for f in "$RUNNER_TEMP"/pdfs/*.pdf; do
+            [ -e "$f" ] || continue
+            node ingest.js "$f" >/dev/null 2>&1 || { echo "::error::$(basename "$f") failed to ingest; run ingest.js locally on that invoice to see why"; fail=1; }
+          done
+          if ! git diff --quiet data.enc; then
+            git -c user.name=nicholaslie90 -c user.email=nicholaslie90@users.noreply.github.com commit -m "auto-ingest invoices from email" data.enc
+            git push
+          fi
+          exit $fail

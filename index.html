@@ -536,9 +536,12 @@ function slice() {
 function syncControls(months) {
   const first = months[0].key, last = months[months.length - 1].key, all = DATA.months;
   $('#from').value = first; $('#to').value = last;
+  let matched = false; // buttons run shortest→longest; with little data several ranges are identical, so mark only the first
   for (const b of $('#filters').querySelectorAll('button')) {
     const s = +b.dataset.n ? all.slice(-b.dataset.n) : all;
-    b.classList.toggle('on', s[0].key === first && s[s.length - 1].key === last);
+    const on = !matched && s[0].key === first && s[s.length - 1].key === last;
+    b.classList.toggle('on', on);
+    matched ||= on;
   }
 }
 function render() {

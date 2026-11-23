@@ -85,7 +85,7 @@ svg .hair { stroke: var(--axis); stroke-width: 1; }
 .seg { cursor: default; }
 .seg:hover, .seg:focus { filter: brightness(1.12); outline: none; }
 #tip { position: fixed; z-index: 10; pointer-events: none; background: var(--surface);
-  border: 1px solid var(--border); border-top: 2px solid var(--forest); border-radius: 3px; padding: 8px 10px;
+  border: 1px solid var(--border); border-top: 2px solid var(--forest); border-radius: 0; padding: 8px 10px;
   box-shadow: 0 6px 18px rgba(16,48,13,.16); display: none; min-width: 150px; }
 #tip .t { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
 #tip .row { display: flex; align-items: center; gap: 7px; margin: 2px 0; }
@@ -105,7 +105,7 @@ tbody tr:hover td { background: #f6f7f2; }
 tr:last-child td { border-bottom: none; }
 /* lock screen */
 #lock { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--forest); padding: 16px; }
-#lock .card { width: 320px; max-width: 100%; text-align: center; border-top: 3px solid var(--tan); padding: 28px 24px 22px; }
+#lock .card { width: 320px; max-width: 100%; text-align: center; border-top: 3px solid var(--tan); border-radius: 0; padding: 28px 24px 22px; }
 #lock img { width: 64px; height: 64px; display: block; margin: 0 auto 12px; }
 #lock h1 { font: 600 28px/1.15 var(--serif); color: var(--forest); margin: 0 0 4px; }
 #lock p { color: var(--muted); margin: 0 0 16px; }

@@ -53,8 +53,9 @@ button:hover { color: var(--forest); border-color: var(--forest); }
 button.on { color: #fff; background: var(--forest); border-color: var(--forest); }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 18px; }
 .filters .range { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-select { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface);
-  border: 1px solid var(--border); border-radius: 2px; padding: 6px 8px; }
+select { font: inherit; font-size: 14px; color: var(--ink); border: 1px solid var(--border); border-radius: 2px;
+  padding: 6px 32px 6px 10px; cursor: pointer; appearance: none; -webkit-appearance: none;
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23174915' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center; }
 select:hover { border-color: var(--forest); }
 /* KPI tiles */
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; margin-bottom: 18px; }
